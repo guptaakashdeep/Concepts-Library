@@ -11,10 +11,6 @@ spark = SparkSession.builder.master("yarn").enableHiveSupport().getOrCreate()
 spark.sparkContext.setLogLevel("ERROR")
 spark.conf.set("hive.exec.dynamic.partition.mode", "nonstrict")
 spark.conf.set("spark.sql.sources.partitionOverwriteMode", "dynamic")
-spark.conf.set(
-    "spark.sql.sources.commitProtocolClass",
-    "org.apache.spark.sql.execution.datasources.SQLEmrOptimizedCommitProtocol",
-)
 
 count_list = []
 

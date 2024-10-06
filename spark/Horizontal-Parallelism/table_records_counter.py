@@ -26,7 +26,7 @@ def get_count(table_name: str) -> dict:
     """
     try:
         count_dict = {}
-        table_count = spark.sql(f"select count(*) from {table_name}").collect()[0][0]
+        table_count = spark.read.table(table_name).count()
         count_dict["table_name"] = table_name
         count_dict["count"] = table_count
         return count_dict
@@ -63,6 +63,23 @@ def main(tables: list) -> None:
                 raise e
 
 
+def main_simpler(tables: list) -> None:
+    """Main method to submit count jobs in parallel.
+       Same functionality as main but s
+    Args:
+        tables (list): list of table name.
+
+    Returns:
+    list: List of Dictionary with keys "table_name" and "count"
+
+    Raises:
+        e: Exception in case of any failures
+    """
+    with ThreadPoolExecutor(max_workers=6) as executor:
+        counts = executor.map(get_count, tables)
+        return counts
+
+
 if __name__ == "__main__":
     CNT_TABLE = "db.table_counts"
     parser = argparse.ArgumentParser()
@@ -79,6 +96,8 @@ if __name__ == "__main__":
 
     # call main method for getting counts in parallel
     main(TABLES)
+    # count_list = main_simpler(TABLES)
+
     # count_list -> list of dict containing table_name and count
     print(count_list)
     # Create dataframe

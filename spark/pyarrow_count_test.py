@@ -74,38 +74,39 @@ print(f"\n--- Main processing complete. {len(invalid_records)} invalid rows were
 
 # --- Process Invalid Records (if any) ---
 if invalid_records and full_schema:
-    print(f"--- Starting reprocessing of {len(invalid_records)} invalid records ---")
+    print(f"--- Starting reprocessing of {len(invalid_records)} invalid records using Pandas ---")
     try:
-        # 1. Clean the collected raw text rows
+        # 1. Clean the collected raw text rows.
         cleaned_rows = [row.replace('\x00', '').replace('\x1a', '') for row in invalid_records]
-        
-        # 2. Create a single CSV string in memory, including a header
-        # Using the full schema ensures the header matches the data.
-        header = delimiter.join(full_schema.names)
-        csv_content = header + '\n' + '\n'.join(cleaned_rows)
+        csv_content = "\n".join(cleaned_rows)
 
-        # 3. Parse the cleaned data using the captured schema
-        # We build a `column_types` dict to enforce the original schema.
-        column_types = {name: type for name, type in zip(full_schema.names, full_schema.types)}
-        
-        invalid_convert_options = pv.ConvertOptions(column_types=column_types)
-        
-        invalid_table = pv.read_csv(
-            io.BytesIO(csv_content.encode('utf-8')),
-            parse_options=pv.ParseOptions(delimiter=delimiter, quote_char='"'),
-            convert_options=invalid_convert_options
+        # 2. Use Pandas' robust CSV parser to read the problematic rows into a DataFrame.
+        # We provide the full list of column names from the pyarrow schema.
+        # `on_bad_lines='warn'` will tell us if any rows are still unparseable even for Pandas.
+        invalid_df = pd.read_csv(
+            io.StringIO(csv_content),
+            sep=delimiter,
+            header=None,
+            names=full_schema.names,
+            quotechar='"',
+            engine='python', # More robust for tricky parsing than the C engine
+            on_bad_lines='warn'
         )
-        print("Successfully parsed cleaned invalid records.")
+        print("Successfully parsed invalid records using Pandas.")
 
-        # 4. Calculate sums from the invalid records' table and add to totals
-        for col_name in columns_to_sum:
-            invalid_sum = pc.sum(invalid_table[col_name]).as_py()
-            if invalid_sum is not None:
-                print(f"Adding sum for column '{col_name}' from invalid records: {invalid_sum}")
-                total_sums[col_name] += invalid_sum
+        # 3. Calculate sums from the new DataFrame and add them to the totals.
+        # `numeric_only=True` ensures we only try to sum columns that are numbers.
+        invalid_sums = invalid_df[columns_to_sum].sum(numeric_only=True)
+        for col_name, value in invalid_sums.items():
+            total_sums[col_name] += value
 
     except Exception as e:
         print(f"An error occurred during reprocessing of invalid records: {e}")
+
+# --- Final Results ---
+print("\n--- Aggregation Complete ---")
+for col, total in total_sums.items():
+    print(f"Final total sum for column '{col}': {total}")
 
 # --- Final Results ---
 print("\n--- Aggregation Complete ---")

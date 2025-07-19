@@ -1,7 +1,9 @@
+# Aggregating sum of columns from a huge csv file that can't fit into memory using PyArrow
 import pyarrow.csv as pv
 import pyarrow.compute as pc
 import pyarrow as pa
 import io
+import pandas as pd
 
 csv_file_path = 'big_80gb_file.csv'
 columns_to_sum = ['col1', 'col2', 'col3']
